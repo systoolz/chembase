@@ -1,0 +1,106 @@
+#undef RC_INVOKED
+#include <commctrl.h>
+#define RC_INVOKED 1
+#include <windows.h>
+#include "ChemBase.h"
+
+IDI_ICON ICON "ChemBase.ico"
+1 24 "Manifest.xml"
+
+1 VERSIONINFO
+FILEVERSION 1,5,0,0
+PRODUCTVERSION 1,5,0,0
+FILETYPE 1
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "040904E4"
+    BEGIN
+      VALUE "CompanyName", "SysTools"
+      VALUE "FileDescription", "ChemBase"
+      VALUE "FileVersion", "1.5.0.0"
+      VALUE "LegalCopyright", "\xA9 SysTools 2017"
+      VALUE "OriginalFilename", "chembase.exe"
+      VALUE "InternalName", "chembase"
+      VALUE "ProductName", "ChemBase"
+      VALUE "ProductVersion", "1.5"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x409, 1252
+  END
+END
+
+IDD_CHEMBASE DIALOG 0, 0, 420, 174
+STYLE DS_3DLOOK | DS_CENTER | DS_SHELLFONT | WS_CAPTION | WS_VISIBLE | WS_GROUP | WS_TABSTOP | WS_THICKFRAME | WS_SYSMENU
+CAPTION "ChemBase v1.05"
+FONT 8, "Ms Sans Serif"
+BEGIN
+  LTEXT          "Energy (eV)", -1, 7, 7, 38, 9
+  LTEXT          "Dispersion (\xB1)", -1, 57, 7, 44, 9
+  LTEXT          "Element", -1, 107, 7, 26, 9
+  LTEXT          "List of found elements", -1, 7, 32, 70, 9
+  LTEXT          "Spectral Line for Element", IDC_SPEC, 332, 32, 80, 9
+  EDITTEXT       IDC_ITEM, 7, 17, 45, 13, ES_AUTOHSCROLL
+  EDITTEXT       IDC_DIFF, 57, 17, 45, 13, ES_AUTOHSCROLL
+  COMBOBOX       IDC_ELEM, 107, 17, 45, 30, WS_TABSTOP | CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_VSCROLL | CBS_SORT | CBS_NOINTEGRALHEIGHT
+  DEFPUSHBUTTON  "Find", IDC_FIND, 157, 17, 50, 13
+  CONTROL        "", IDC_LIST, WC_LISTVIEW, WS_TABSTOP | WS_BORDER | LVS_ALIGNLEFT | LVS_SINGLESEL | LVS_REPORT, 7, 42, 320, 75
+  EDITTEXT       IDC_INFO, 7, 122, 320, 45, WS_VSCROLL | ES_MULTILINE | ES_READONLY
+  PUSHBUTTON     "Copy info", IDC_COPY, 332, 127, 50, 13, WS_DISABLED
+  PUSHBUTTON     "See details", IDC_SITE, 332, 147, 50, 13, WS_DISABLED
+  PUSHBUTTON     "Invert", IDC_XCHG, 332, 17, 25, 13, WS_DISABLED
+  PUSHBUTTON     "Show this", IDC_SHOW, 362, 17, 50, 13, WS_DISABLED
+  CONTROL        "", IDC_LINE, WC_LISTVIEW, WS_TABSTOP | WS_BORDER | LVS_SINGLESEL | LVS_REPORT | LVS_NOCOLUMNHEADER | LVS_SORTASCENDING, 332, 42, 80, 75
+END
+
+STRINGTABLE
+BEGIN
+  IDS_INFO\
+    "Element: %s\r\n"\
+    "Spectral Line: %s\r\n"\
+    "Formula: %s\r\n"\
+    "Energy (eV): %s\r\n"\
+    "Details: http://srdata.nist.gov/xps/XPSDetailPage.aspx?AllDataNo=%s"
+  IDS_HELP\
+    "ChemBase v1.05\r\n"\
+    "\xA9 SysTools 2017\r\n"\
+    "http://systools.losthost.org/?misc#chembase\r\n"\
+    "\r\n"\
+    "This program provides an easy and quick way to use the database for the energy positions of the core peaks of elements in different chemical compounds. It contains a huge number of references to the works carried out by X-ray photoelectron spectroscopy.\r\n"\
+    "It allows you to quickly carry out a comparative analysis of the experimental data available in the literature, and select the appropriate references.\r\n"\
+    "This program utilises open NIST X-ray Photoelectron Spectroscopy Database.\r\n"\
+    "It's a limited only to Binding Energy version of the web search:\r\n"\
+    "https://srdata.nist.gov/xps/EnergyTypeValSrch.aspx\r\n"\
+    "This program saves a lot of time, and it's a necessary tool for a professional.\r\n"\
+    "\r\n"\
+    "Note that precision of the all values are two digits after the point.\r\n"\
+    "\r\n"\
+    "Energy (eV) - enter current energy level here.\r\n"\
+    "\r\n"\
+    "Dispersion (+/-) - enter dispersion for current energy level here.\r\n"\
+    "\r\n"\
+    "Element - you can also restrict search by selecting desired element here.\r\n"\
+    "If the first (empty) item is selected then this field will be completely ignored and search will be performed on all available elements to satisfy the two parameters above.\r\n"\
+    "\r\n"\
+    "Spectral line for Element - this list box adds additional restriction on the search, so the search will only be performed for the current element with the selected Spectral lines.\r\n"\
+    "\r\n"\
+    "Find - this button performs search for the selected parameters. If selected, element and spectral lines will be also included as search filter.\r\n"\
+    "Note that Enter key from the keyboard anywhere in this window except buttons will perform search as if this button was pressed.\r\n"\
+    "\r\n"\
+    "Invert - this button inverts selection for the items in the spectral lines list box.\r\n"\
+    "\r\n"\
+    "Show this - show all database records for the selected element and spectral lines.\r\n"\
+    "Note that energy and dispersion fields will be completely ignored for this search.\r\n"\
+    "\r\n"\
+    "List of found elements - list of all elements found by last search.\r\n"\
+    "Result table can be sorted by ascending (first click on the column header) or descending order (second continuous click on the same column header). Sort order is memorized and is not reset between searches. Default sort order is ascending by the Energy level (eV).\r\n"\
+    "\r\n"\
+    "Selection row in the result table will display it's data in the info box below.\r\n"\
+    "\r\n"\
+    "Copy info - copy info box text to the clipboard.\r\n"\
+    "\r\n"\
+    "See details - open URL (last line in the info box) in the Internet Browser to see a detailed information about the current element from info box and its data which are not included in this database."
+  IDS_ERR_BASE "Can't open ChemBase database file!"
+END
