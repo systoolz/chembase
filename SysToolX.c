@@ -18,12 +18,14 @@ int i;
   res = NULL;
   hr = FindResource(NULL, MAKEINTRESOURCE(sid / 16 + 1), RT_STRING);
   p = hr ? (WORD *) LockResource(LoadResource(NULL, hr)) : NULL;
-  if (p != NULL) {
+  if (p) {
     for (i = 0; i < (sid & 15); i++) {
       p += 1 + *p;
     }
     res = STR_ALLOC(*p);
-    LoadString(NULL, sid, res, *p + 1);
+    if (res) {
+      LoadString(NULL, sid, res, *p + 1);
+    }
   }
   return(res);
 }

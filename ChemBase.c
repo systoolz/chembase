@@ -1,20 +1,27 @@
 #include <windows.h>
+
 // new messages
 #ifndef _WIN32_IE
 #define _WIN32_IE 0x0300
 #endif
+
 #include <commctrl.h>
+
 // old GCC headers
 #if (_WIN32_IE >= 0x0300)
+
 #ifndef ListView_SetCheckState
 #define ListView_SetCheckState(hwndLV, i, fCheck) \
   ListView_SetItemState(hwndLV, i, INDEXTOSTATEIMAGEMASK((fCheck)?2:1), LVIS_STATEIMAGEMASK)
 #endif
+
 #ifndef ListView_GetCheckState
 #define ListView_GetCheckState(hwndLV, i) \
   ((((UINT)(SNDMSG((hwndLV), LVM_GETITEMSTATE, (WPARAM)(i), LVIS_STATEIMAGEMASK))) >> 12) -1)
 #endif
+
 #endif
+
 // CoInitialize() / CoUninitialize()
 #include <shlwapi.h>
 // ShellExecute()
@@ -24,12 +31,66 @@
 #include "SysToolX.h"
 #include "BaseUnit.h"
 #include "WAnchors.h"
+// v1.06
+#include "Settings.h"
 
-static TCHAR dlgText[] = TEXT("0.00\0Element\0Spectral Line\0Formula\0Energy (eV)\0Details");
-static TCHAR BaseFile[] = TEXT("ChemBase.bin");
-static TCHAR fmtStr[] = TEXT("%lu.%02lu");
+PCSD TCHAR dlgText[] = TEXT("Element\0Spectral Line\0Formula\0Energy (eV)\0Details");
+PCSD TCHAR BaseFile[] = TEXT("ChemBase.bin");
+PCSD TCHAR fmtStr[] = TEXT("%u.%02u");
+PCSD TCHAR fmtLst[] = TEXT("%hs|%hs|%hs|%u.%02u|%hs%u|");
+PCSD TCHAR fmtA2U[] = TEXT("%hs");
+// v1.06
+#define MAX_CFG 14
+#define CFG_X 0
+#define CFG_Y 1
+#define CFG_W 2
+#define CFG_H 3
+#define CFG_N 4
+#define CFG_D 5
+#define CFG_E 6
+#define CFG_L 7
+#define CFG_S 8
+#define CFG_C 9
+PCSD TCHAR iniStr[] = TEXT(".\\ChemBase.ini\0ChemBase");
+// default settings values
+PCSD int defcfg[MAX_CFG][2] = {
+  // window x and y position
+  {TEXT('x'),   CW_USEDEFAULT},
+  {TEXT('y'),   CW_USEDEFAULT},
+  // window width and height
+  {TEXT('w'),   0},
+  {TEXT('h'),   0},
+  // energy and dispersion
+  {TEXT('n'),   0},
+  {TEXT('d'),   0},
+  // selected element id
+  {TEXT('e'),  -1},
+  // spectral lines bit flag mask
+  {TEXT('l'),  -1},
+  // column sort order (negative for descending)
+  {TEXT('s'),   4},
+  // columns sizes
+  {TEXT('1'),  50},
+  {TEXT('2'),  80},
+  {TEXT('3'), 199},
+  {TEXT('4'),  70},
+  {TEXT('5'),  60}
+};
+// v1.06 database tables
+#define BASE_ALLDATA 0
+#define BASE_ELEMENT 1
+#define BASE_SPCLINE 2
+#define BASE_FORMULA 3
+// v1.06 listview columns
+#define COLS_ELEMENT 0
+#define COLS_SPCLINE 1
+#define COLS_FORMULA 2
+#define COLS_ENERGYL 3
+#define COLS_DETAILS 4
+#define COLS_INTOTAL 5
+
 // anchors for controls
-static WORD dlgAnchors[] = {
+PCSD WORD dlgAnchors[] = {
   MAKEWORD(IDC_LIST, WACS_LEFT  | WACS_RIGHT | WACS_TOP | WACS_BOTTOM),
   MAKEWORD(IDC_INFO, WACS_LEFT  | WACS_RIGHT | WACS_BOTTOM),
   MAKEWORD(IDC_COPY, WACS_RIGHT | WACS_BOTTOM),
@@ -37,61 +98,61 @@ static WORD dlgAnchors[] = {
   MAKEWORD(IDC_XCHG, WACS_RIGHT | WACS_TOP),
   MAKEWORD(IDC_SHOW, WACS_RIGHT | WACS_TOP),
   MAKEWORD(IDC_LINE, WACS_RIGHT | WACS_TOP   | WACS_BOTTOM),
-  MAKEWORD(IDC_SPEC, WACS_RIGHT | WACS_TOP),
-  0
+  MAKEWORD(IDC_SPEC, WACS_RIGHT | WACS_TOP)
 };
-static BYTE dlgCols[] = {50, 80, 199, 70, 60, 0};
-
-#define FIND_COMBOBOX 0x10000000
-#define FIND_CHECKBOX 0x20000000
 
 static bin_file bf;
 
-#pragma pack(push, 1)
-typedef struct {
-  HWND wnd[2];
-  DWORD data[3];
-} usr_parm;
-#pragma pack(pop)
-
-// BYTE (ANSI) to TCHAR
-TCHAR *ANSI2Unicode(TCHAR *s, BYTE *p, DWORD sz) {
-  while (sz--) {
-    *s = *p;
-    p++;
-    s++;
-  }
-  *s = 0;
-  s++;
-  return(s);
+void ANSI2Unicode(TCHAR *su, CCHAR *sa) {
+  wsprintf(su, fmtA2U, sa);
 }
 
-void RowStrFmt(bin_item *bi, TCHAR *s) {
+int GetElementId(HWND wnd) {
+int i;
+  i = -1;
+  if (wnd) {
+    i = SendMessage(wnd, CB_GETCURSEL, 0, 0);
+    if (i >= 0) {
+      i = SendMessage(wnd, CB_GETITEMDATA, i, 0);
+    }
+  }
+  return(i);
+}
+
+void AddElementSD(HWND wnd, TCHAR *str, int dat) {
+int i;
+  if (wnd && str) {
+    i = SendMessage(wnd, CB_ADDSTRING, 0, (LPARAM) str);
+    if (i >= 0) {
+      SendMessage(wnd, CB_SETITEMDATA, i, (LPARAM) dat);
+    }
+  }
+}
+
+void BuildListRow(TCHAR *s, bin_file *bfx, bin_item *bi) {
+CCHAR d[3];
+BYTE b;
   // sanity check
-  if (bi && s) {
-    // element
-    s = ANSI2Unicode(s, (BYTE *)&bi->element, HIBYTE(bi->element) ? 2 : 1);
-    // spectral line
-    s = ANSI2Unicode(s, (BYTE *)&bi[1], bi->sz_spec - 1);
-    // formula
-    s = ANSI2Unicode(s, ((BYTE *)(&bi[1])) + bi->sz_spec, bi->sz_form - 1);
-    // energy
-    wsprintf(s, fmtStr, bi->energy / 100, bi->energy % 100);
-    s += lstrlen(s) + 1;
-    // details prefix "R-"
-    s[0] = LOBYTE(bi->detail >> 24);
-    s[1] = (LOBYTE(s[0]) >> 7) * TEXT('-');
-    s[0] &= 0x7F;
-    s[2] = 0;
-    s += lstrlen(s);
-    wsprintf(s, TEXT("%lu"), bi->detail & 0xFFFFFF);
-    s += lstrlen(s) + 1;
-    // two sequental nulls - terminator
-    *s = 0;
+  if (s && bfx && bi) {
+    b = bi->detail >> 24;
+    d[0] = b & 0x7F;
+    d[1] = '-' * (b >> 7);
+    d[2] = 0;
+    wsprintf(s, fmtLst,
+      BaseItem(bfx, BASE_ELEMENT, bi->element),
+      BaseItem(bfx, BASE_SPCLINE, bi->spcline),
+      BaseItem(bfx, BASE_FORMULA, bi->formula),
+      bi->energy / 100, bi->energy % 100,
+      d, bi->detail & 0x00FFFFFF
+    );
+    while (*s) {
+      if (*s == TEXT('|')) { *s = 0; }
+      s++;
+    }
   }
 }
 
-int AddItemToListView(HWND wnd, TCHAR *s, LPARAM lparm) {
+int AddListViewItem(HWND wnd, TCHAR *s, LPARAM lparm) {
 LV_ITEM li;
   li.iItem = -1;
   // sanity check
@@ -101,70 +162,17 @@ LV_ITEM li;
     li.pszText = s;
     li.lParam = lparm;
     li.iItem = ListView_GetItemCount(wnd);
-    ListView_InsertItem(wnd, &li);
-    li.mask ^= LVIF_PARAM;
-    // subitems
-    for (li.pszText += (lstrlen(li.pszText) + 1); li.pszText[0]; li.pszText += (lstrlen(li.pszText) + 1)) {
-      li.iSubItem++;
-      ListView_SetItem(wnd, &li);
+    li.iItem = ListView_InsertItem(wnd, &li);
+    if (li.iItem != -1) {
+      li.mask ^= LVIF_PARAM;
+      // subitems
+      for (li.pszText += (lstrlen(li.pszText) + 1); li.pszText[0]; li.pszText += (lstrlen(li.pszText) + 1)) {
+        li.iSubItem++;
+        ListView_SetItem(wnd, &li);
+      }
     }
   }
   return(li.iItem);
-}
-
-BOOL WINAPI FindProc(bin_item *bi, void *parm) {
-TCHAR s[1024];
-LV_FINDINFO lf;
-usr_parm *up;
-  // user params
-  up = (usr_parm *) parm;
-  switch (LOBYTE(up->data[2] >> 28) & 0x0F) {
-    case 0: // main search reasult
-      // check element
-      lf.flags = LOWORD(up->data[2]);
-      // some element selected
-      if (lf.flags == bi->element) {
-        // spectral line
-        ANSI2Unicode(s, (BYTE *)&bi[1], bi->sz_spec);
-        // test on intersection with the selected lines
-        ZeroMemory(&lf, sizeof(lf));
-        lf.flags = LVFI_STRING;
-        lf.psz = s;
-        lf.flags = ListView_FindItem(up->wnd[1], -1, &lf);
-        // found and checked
-        lf.flags = ((lf.flags != (DWORD) -1) && (ListView_GetCheckState(up->wnd[1], lf.flags))) ? 0 : 1;
-      }
-      // pass filter and energy in the range
-      if ((!lf.flags) && (bi->energy >= up->data[0]) && (bi->energy <= up->data[1])) {
-        RowStrFmt(bi, s);
-        AddItemToListView(up->wnd[0], s, (LPARAM) bi);
-      }
-      break;
-    case 1: // FIND_COMBOBOX
-      // element name
-      ANSI2Unicode(s, (BYTE *)&bi->element, 2);
-      // not in combobox already
-      if (SendMessage(up->wnd[0], CB_FINDSTRINGEXACT, -1, (LPARAM) s) == CB_ERR) {
-        SendMessage(up->wnd[0], CB_ADDSTRING, 0, (LPARAM) s);
-      }
-      break;
-    case 2: // FIND_CHECKBOX
-      if (bi->element == up->data[0]) {
-        // spectral line
-        ANSI2Unicode(s, (BYTE *)&bi[1], bi->sz_spec);
-        // init structure
-        ZeroMemory(&lf, sizeof(lf));
-        lf.flags = LVFI_STRING;
-        lf.psz = s;
-        // not in listbox already
-        if (ListView_FindItem(up->wnd[0], -1, &lf) == -1) {
-          // add and checked by default
-          ListView_SetCheckState(up->wnd[0], AddItemToListView(up->wnd[0], s, 0), TRUE);
-        }
-      }
-      break;
-  }
-  return(TRUE);
 }
 
 DWORD GetAndFixEditFloat(HWND wnd) {
@@ -197,7 +205,7 @@ TCHAR s[16];
     d++;
   }
   s[d] = 0;
-  // convert to digit
+  // convert to number
   result = 0;
   for (i = 0; s[i]; i++) {
     result *= 10;
@@ -214,7 +222,7 @@ TCHAR s[16];
 #define CID_LIST 0
 #define CID_CBOX 1
 void CtrlInitDone(HWND wnd, DWORD flag) {
-DWORD i;
+int i;
   // flag: init
   if (flag & CID_INIT) {
     // prevent update
@@ -222,17 +230,19 @@ DWORD i;
     if (flag & CID_CBOX) {
       // combobox
       SendMessage(wnd, CB_RESETCONTENT, 0, 0);
-      // first item must be empty
-      flag = 0;
-      SendMessage(wnd, CB_ADDSTRING, 0, (LPARAM) &flag);
     } else {
+      // v1.06 - remove focus to speedup a bit deletion process
+      i = ListView_GetNextItem(wnd, -1, LVNI_FOCUSED);
+      if (i >= 0) {
+        ListView_SetItemState(wnd, i, 0, LVIS_FOCUSED | LVIS_SELECTED);
+      }
       // listview
       // PATCH: Windows 98 can add 27k+ items just fine (around 10 seconds)
       // but deleting with ListView_DeleteAllItems() can take up to whole 10 minutes!
       // items MUST be deleted from last to first (around 15 seconds) and not vice versa
       // or it takes the same 10 minutes (the Microsoft way)
       // this bug was fixed at least in Windows XP and newer
-      for (i = ListView_GetItemCount(wnd); i; i--) {
+      for (i = ListView_GetItemCount(wnd); i > 0; i--) {
         ListView_DeleteItem(wnd, i - 1);
       }
       // just in case
@@ -246,90 +256,205 @@ DWORD i;
   }
 }
 
-void EnergyFind(HWND wnd, bin_file *bfx, DWORD vitem, DWORD vdiff) {
-usr_parm up;
-TCHAR s[3];
-  // vmin / vmax
-  up.data[0] = vitem - min(vitem, vdiff);
-  up.data[1] = vitem + vdiff;
-  // additional filter - element
-  GetDlgItemText(wnd, IDC_ELEM, s, 3);
-  up.data[2] = s[0] ? MAKEWORD(s[0], s[1]) : 0;
-  // update window handle
-  up.wnd[0] = GetDlgItem(wnd, IDC_LIST);
-  up.wnd[1] = GetDlgItem(wnd, IDC_LINE);
-  // init
-  CtrlInitDone(up.wnd[0], CID_LIST | CID_INIT);
-  // find items
-  BaseList(bfx, FindProc, &up);
-  // done
-  CtrlInitDone(up.wnd[0], CID_LIST | CID_DONE);
-}
-
+// v1.06 reworked
 void AddElements(HWND wnd, bin_file *bfx) {
-usr_parm up;
-  up.wnd[0] = GetDlgItem(wnd, IDC_ELEM);
-  // combobox flag
-  up.data[2] = FIND_COMBOBOX;
+TCHAR buf[1025];
+CCHAR *data;
+WORD *offs;
+DWORD i;
+  wnd = GetDlgItem(wnd, IDC_ELEM);
   // init
-  CtrlInitDone(up.wnd[0], CID_CBOX | CID_INIT);
-  // find items
-  BaseList(bfx, FindProc, &up);
+  CtrlInitDone(wnd, CID_CBOX | CID_INIT);
+  // first item must be empty
+  *buf = 0;
+  AddElementSD(wnd, buf, -1);
+  offs = (WORD *) BaseData(bfx, BASE_ELEMENT);
+  if (offs) {
+    data = (CCHAR *) offs;
+    for (i = 0; i < *offs; i++) {
+      ANSI2Unicode(buf, &data[offs[i] * 2]);
+      AddElementSD(wnd, buf, i);
+    }
+  }
   // done
-  CtrlInitDone(up.wnd[0], CID_CBOX | CID_DONE);
+  CtrlInitDone(wnd, CID_CBOX | CID_DONE);
   // fix combobox height
-  AdjustComboBoxHeight(up.wnd[0], 8);
+  AdjustComboBoxHeight(wnd, 8);
+  // v1.06 select first item - removes need for double down cursor selection
+  SendMessage(wnd, CB_SETCURSEL, 0, 0);
 }
 
+// v1.06 reworked
 void AddSpectralLines(HWND wnd, bin_file *bfx) {
-usr_parm up;
-TCHAR s[3];
-  up.wnd[0] = GetDlgItem(wnd, IDC_LINE);
-  // checkbox flag
-  up.data[2] = FIND_CHECKBOX;
-  // init
-  CtrlInitDone(up.wnd[0], CID_LIST | CID_INIT);
+TCHAR buf[1025];
+LV_FINDINFO lf;
+bin_item *bi;
+LV_ITEM li;
+WORD *offs;
+CCHAR *s;
+HWND wh;
+DWORD i;
+int j;
   // got something to find?
-  GetDlgItemText(wnd, IDC_ELEM, s, 3);
-  if (s[0]) {
-    up.data[0] = MAKEWORD(s[0], s[1]);
-    // find items
-    BaseList(bfx, FindProc, &up);
+  j = GetElementId(GetDlgItem(wnd, IDC_ELEM));
+  wh = wnd;
+  wnd = GetDlgItem(wnd, IDC_LINE);
+  // init
+  CtrlInitDone(wnd, CID_LIST | CID_INIT);
+  // something selected
+  if (j >= 0) {
+    offs = (WORD *) BaseData(bfx, BASE_ALLDATA);
+    i = *offs;
+    bi = (bin_item *) &offs[1];
+    offs = (WORD *) BaseData(bfx, BASE_SPCLINE);
+    s = (CCHAR *) offs;
+    ZeroMemory(&lf, sizeof(lf));
+    lf.flags = LVFI_PARAM;
+    ZeroMemory(&li, sizeof(li));
+    li.mask = LVIF_PARAM | LVIF_TEXT;
+    li.pszText = buf;
+    while (i--) {
+      if (bi->element == j) {
+        // not in listbox already
+        lf.lParam = bi->spcline;
+        if (ListView_FindItem(wnd, -1, &lf) == -1) {
+          // add and set check mark by default
+          ANSI2Unicode(buf, &s[offs[bi->spcline] * 2]);
+          li.lParam = bi->spcline;
+          ListView_SetCheckState(wnd, ListView_InsertItem(wnd, &li), TRUE);
+        }
+      }
+      // next row
+      bi++;
+    }
   }
   // at least one item
-  up.data[0] = ListView_GetItemCount(up.wnd[0]) ? TRUE : FALSE;
-  DialogEnableWindow(wnd, IDC_XCHG, up.data[0]);
-  DialogEnableWindow(wnd, IDC_SHOW, up.data[0]);
+  i = (ListView_GetItemCount(wnd) > 0) ? TRUE : FALSE;
+  DialogEnableWindow(wh, IDC_XCHG, i);
+  DialogEnableWindow(wh, IDC_SHOW, i);
   // done
-  CtrlInitDone(up.wnd[0], CID_LIST | CID_DONE);
+  CtrlInitDone(wnd, CID_LIST | CID_DONE);
+  // v1.06 - select first item if any
+  if (i) {
+    ListView_SetItemState(wnd, 0, LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED);
+  }
 }
 
-void ShowInfo(HWND wnd) {
-TCHAR s[1024], z[1024], *fmt, *x, *p[5];
+// v1.06 reworked
+int CALLBACK ItemSortFunc(LPARAM lparm1, LPARAM lparm2, LPARAM lparmsort) {
+bin_item *bi1, *bi2;
+int result;
+  bi1 = (bin_item *) lparm1;
+  bi2 = (bin_item *) lparm2;
+  // v1.06 note: all items id in database sorted in ascending order now
+  switch (LOBYTE(lparmsort)) {
+    case COLS_ELEMENT:
+      result = bi1->element - bi2->element;
+      break;
+    case COLS_SPCLINE:
+      result = bi1->spcline - bi2->spcline;
+      break;
+    case COLS_FORMULA:
+      result = bi1->formula - bi2->formula;
+      break;
+    case COLS_DETAILS:
+      result = (bi1->detail & 0x7FFFFFFF) - (bi2->detail & 0x7FFFFFFF);
+      break;
+    case COLS_ENERGYL:
+    default:
+      result = bi1->energy - bi2->energy;
+      break;
+  }
+  // v1.06 equal values - sort by records order
+  // this will prevent situation when switching
+  // between ascending and descending on the same column
+  // shifts selected item from first on ascending to
+  // second to last on descending and vice versa
+  // this may happen if few first elements have equal
+  // values in the sorting column
+  if (!result) {
+    result = ((LPARAM) bi1) - ((LPARAM) bi2);
+  }
+  // ascending or descending sort order
+  result *= 1 - (HIBYTE(lparmsort) * 2);
+  return(result);
+}
+
+void EnergyFind(HWND wnd, bin_file *bfx, DWORD vitem, DWORD vdiff) {
+TCHAR s[1025];
+LV_FINDINFO lf;
+bin_item *bi;
+WORD *offs;
+HWND wh;
+DWORD i;
+int j;
+  // energy vmin / vmax (vitem / vdiff)
+  i = (vitem > vdiff) ? (vitem - vdiff) : 0;
+  vdiff += vitem;
+  vitem = i;
+  // additional filter by selected element
+  j = GetElementId(GetDlgItem(wnd, IDC_ELEM));
+  // window handles
+  wh = GetDlgItem(wnd, IDC_LINE);
+  wnd = GetDlgItem(wnd, IDC_LIST);
+  // init
+  CtrlInitDone(wnd, CID_LIST | CID_INIT);
+  offs = (WORD *) BaseData(bfx, BASE_ALLDATA);
+  i = *offs;
+  bi = (bin_item *) &offs[1];
+  ZeroMemory(&lf, sizeof(lf));
+  lf.flags = LVFI_PARAM;
+  while (i--) {
+    // energy
+    if ((bi->energy >= vitem) && (bi->energy <= vdiff)) {
+      lf.lParam = bi->spcline;
+      // element any or matched with selected spectral lines
+      if ((j == -1) || (
+        (j == bi->element) && (ListView_GetCheckState(wh, ListView_FindItem(wh, -1, &lf)))
+      )) {
+        BuildListRow(s, bfx, bi);
+        AddListViewItem(wnd, s, (LPARAM) bi);
+      }
+    }
+    // next row
+    bi++;
+  }
+  // sort by last sort order
+  ListView_SortItems(wnd, ItemSortFunc, GetWindowLong(wnd, GWL_USERDATA));
+  // done
+  CtrlInitDone(wnd, CID_LIST | CID_DONE);
+  // v1.06 - select first item if any
+  if (ListView_GetItemCount(wnd) > 0) {
+    ListView_SetItemState(wnd, 0, LVIS_FOCUSED | LVIS_SELECTED, LVIS_FOCUSED | LVIS_SELECTED);
+  }
+}
+
+void ShowInfo(HWND wnd, bin_file *bfx) {
+TCHAR s[1025], z[1025], *fmt, *x, *p[COLS_INTOTAL];
 LV_ITEM li;
 DWORD i;
 HWND wh;
-  ZeroMemory(&li, sizeof(li));
   wh = GetDlgItem(wnd, IDC_LIST);
+  ZeroMemory(&li, sizeof(li));
   // find selected item
   li.iItem = ListView_GetNextItem(wh, -1, LVNI_SELECTED);
   if (li.iItem != -1) {
     // get selected item
     li.mask = LVIF_PARAM;
     ListView_GetItem(wh, &li);
-    RowStrFmt((bin_item *) li.lParam, s);
+    BuildListRow(s, bfx, (bin_item *) li.lParam);
     fmt = LangLoadString(IDS_INFO);
     if (fmt) {
       x = s;
-      for (i = 0; i < 5; i++) {
+      for (i = 0; i < COLS_INTOTAL; i++) {
         p[i] = x;
         x += *x ? (lstrlen(x) + 1) : 0;
       }
-      wsprintf(z, fmt, p[0], p[1], p[2], p[3], p[4]);
+      wsprintf(z, fmt, p[COLS_ELEMENT], p[COLS_SPCLINE], p[COLS_FORMULA], p[COLS_ENERGYL], p[COLS_DETAILS]);
       lstrcpy(s, z);
       FreeMem(fmt);
     } else {
-      s[0] = 0;
+      *s = 0;
     }
     // set text
     SetDlgItemText(wnd, IDC_INFO, s);
@@ -346,41 +471,145 @@ int i;
   }
 }
 
-int CALLBACK ItemSortFunc(LPARAM lparm1, LPARAM lparm2, LPARAM lparmsort) {
-bin_item *bi1, *bi2;
-int result;
-  bi1 = (bin_item *) lparm1;
-  bi2 = (bin_item *) lparm2;
-  switch (LOBYTE(lparmsort)) {
-    case 0: // element
-      result = LOBYTE(bi1->element);
-      result -= LOBYTE(bi2->element);
-      if (!result) {
-        result = HIBYTE(bi1->element);
-        result -= HIBYTE(bi2->element);
-      }
-      break;
-    case 1: // spectral line
-      result = lstrcmpA((CCHAR *)&bi1[1], (CCHAR *)&bi2[1]);
-      break;
-    case 2: // formula
-      result = lstrcmpA(((CCHAR *)&bi1[1]) + bi1->sz_spec, ((CCHAR*)&bi2[1]) + bi2->sz_spec);
-      break;
-    case 4: // details
-      result = bi1->detail & 0x7FFFFFFF;
-      result -= bi2->detail & 0x7FFFFFFF;
-      break;
-    case 3: // energy
-    default: // default
-      result = bi1->energy;
-      result -= bi2->energy;
-      break;
-  }
-  // ascending or descending sort order
-  result *= HIBYTE(lparmsort) ? -1 : 1;
-  return(result);
+// v1.06
+void SetDlgValue(HWND wnd, int dlg, int value) {
+TCHAR buf[1025];
+  value = (value < 0) ? (-value) : value;
+  wsprintf(buf, fmtStr, value / 100, value % 100);
+  SetDlgItemText(wnd, dlg, buf);
 }
 
+// v1.06
+void GetWndDefRect(HWND wnd, RECT *rc) {
+  if (wnd && rc) {
+    if (IsIconic(wnd) || IsZoomed(wnd)) {
+      SendMessage(wnd, WM_SYSCOMMAND, (WPARAM) SC_RESTORE, 0);
+    }
+    GetWindowRect(wnd, rc);
+  }
+}
+
+// v1.06
+void EnsureWndOnScreen(RECT *rc) {
+RECT wr;
+  if (rc) {
+    ZeroMemory(&wr, sizeof(wr));
+    if (SystemParametersInfo(SPI_GETWORKAREA, 0, &wr, 0)) {
+      if ((rc->left + 32) >= wr.right) {
+        rc->left = wr.right - rc->right;
+      }
+      if (rc->left < wr.left) {
+        rc->left = wr.left;
+      }
+      if ((rc->top + 32) >= wr.bottom) {
+        rc->top = wr.bottom - rc->bottom;
+      }
+      if (rc->top < wr.top) {
+        rc->top = wr.top;
+      }
+    }
+  }
+}
+
+// v1.06
+void InitSettings(HWND wnd) {
+int cfg[MAX_CFG], l;
+RECT rc;
+HWND wh;
+  ZeroMemory(cfg, sizeof(cfg));
+  LoadSettings(cfg, (int *) defcfg, MAX_CFG, (TCHAR *) iniStr);
+  // window
+  GetWndDefRect(wnd, &rc);
+  if ((cfg[CFG_X] != CW_USEDEFAULT) && (cfg[CFG_Y] != CW_USEDEFAULT)) {
+    rc.left = cfg[CFG_X];
+    rc.top = cfg[CFG_Y];
+  }
+  if ((cfg[CFG_W] != 0) && (cfg[CFG_H] != 0)) {
+    rc.right = cfg[CFG_W];
+    rc.bottom = cfg[CFG_H];
+  } else {
+    rc.right -= rc.left;
+    rc.bottom -= rc.top;
+  }
+  EnsureWndOnScreen(&rc);
+  MoveWindow(wnd, rc.left, rc.top, rc.right, rc.bottom, TRUE);
+  SetDlgValue(wnd, IDC_ITEM, cfg[CFG_N]);
+  SetDlgValue(wnd, IDC_DIFF, cfg[CFG_D]);
+  // find and select element
+  wh = GetDlgItem(wnd, IDC_ELEM);
+  for (l = SendMessage(wh, CB_GETCOUNT, 0, 0); l > 0; l--) {
+    if (SendMessage(wh, CB_GETITEMDATA, l - 1, 0) == cfg[CFG_E]) {
+      // select element
+      SendMessage(wh, CB_SETCURSEL, l - 1, 0);
+      // update lines list
+      SendMessage(wnd, WM_COMMAND, MAKELONG(IDC_ELEM, CBN_SELCHANGE), (LPARAM) wh);
+      break;
+    }
+  }
+  // check spectral lines
+  wh = GetDlgItem(wnd, IDC_LINE);
+  for (l = ListView_GetItemCount(wh); l > 0; l--) {
+    ListView_SetCheckState(wh, l - 1, (cfg[CFG_L] & 1) ? TRUE : FALSE);
+    cfg[CFG_L] >>= 1;
+  }
+  // sort order
+  if (cfg[CFG_S] < 0) {
+    // descending
+    cfg[CFG_S] = -cfg[CFG_S];
+    l = 1;
+  } else {
+    // ascending
+    l = 0;
+  }
+  wh = GetDlgItem(wnd, IDC_LIST);
+  if ((cfg[CFG_S] > 0) && (cfg[CFG_S] <= COLS_INTOTAL)) {
+    cfg[CFG_S]--;
+    SetWindowLong(wh, GWL_USERDATA, MAKEWORD(LOBYTE(cfg[CFG_S]), l));
+  }
+  // column sizes
+  for (l = 0; l < COLS_INTOTAL; l++) {
+    ListView_SetColumnWidth(wh, l, (cfg[CFG_C + l] < 5) ? defcfg[CFG_C + l][1] : cfg[CFG_C + l]);
+  }
+}
+
+// v1.06
+void KeepSettings(HWND wnd) {
+int cfg[MAX_CFG];
+RECT rc;
+HWND wh;
+int l;
+  ZeroMemory(cfg, sizeof(cfg));
+  // window
+  GetWndDefRect(wnd, &rc);
+  cfg[CFG_X] = rc.left;
+  cfg[CFG_Y] = rc.top;
+  cfg[CFG_W] = rc.right - rc.left;
+  cfg[CFG_H] = rc.bottom - rc.top;
+  cfg[CFG_N] = GetAndFixEditFloat(GetDlgItem(wnd, IDC_ITEM));
+  cfg[CFG_D] = GetAndFixEditFloat(GetDlgItem(wnd, IDC_DIFF));
+  cfg[CFG_E] = GetElementId(GetDlgItem(wnd, IDC_ELEM));
+  wh = GetDlgItem(wnd, IDC_LINE);
+  for (l = 0; l < ListView_GetItemCount(wh); l++) {
+    cfg[CFG_L] <<= 1;
+    cfg[CFG_L] |= ListView_GetCheckState(wh, l) ? 1 : 0;
+  }
+  wh = GetDlgItem(wnd, IDC_LIST);
+  l = GetWindowLong(wh, GWL_USERDATA);
+  if (HIBYTE(l)) {
+    // descending
+    l = LOBYTE(l) + 1;
+    l = -l;
+  } else {
+    // ascending
+    l = LOBYTE(l) + 1;
+  }
+  cfg[CFG_S] = l;
+  // columns
+  for (l = 0; l < 5; l++) {
+    cfg[CFG_C + l] = ListView_GetColumnWidth(wh, l);
+  }
+  SaveSettings(cfg, (int *) defcfg, MAX_CFG, (TCHAR *) iniStr);
+}
 
 BOOL CALLBACK DlgPrc(HWND wnd, UINT umsg, WPARAM wparm, LPARAM lparm) {
 TCHAR *s, z[100];
@@ -397,17 +626,6 @@ HWND wh;
       lparm = (LPARAM) LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(IDI_ICON));
       SendMessage(wnd, WM_SETICON, ICON_BIG  , lparm);
       SendMessage(wnd, WM_SETICON, ICON_SMALL, lparm);
-      // check database after icons
-      // or window icon will be empty in taskbar
-      BaseOpen(BaseFile, &bf);
-      // failed?
-      if (!bf.data) {
-        // report error
-        MsgBox(wnd, MAKEINTRESOURCE(IDS_ERR_BASE), MB_ICONERROR | MB_OK);
-        // close window
-        PostMessage(wnd, WM_COMMAND, MAKELONG(IDCANCEL, BN_CLICKED), 0);
-        break;
-      }
       // copyrights, etc.
       s = LangLoadString(IDS_HELP);
       if (s) {
@@ -417,25 +635,21 @@ HWND wh;
       // limit text length
       SendDlgItemMessage(wnd, IDC_ITEM, EM_LIMITTEXT, 10, 0);
       SendDlgItemMessage(wnd, IDC_DIFF, EM_LIMITTEXT, 10, 0);
-      // default texts
-      s = dlgText;
-      SetDlgItemText(wnd, IDC_ITEM, s);
-      SetDlgItemText(wnd, IDC_DIFF, s);
       // add columns
       ZeroMemory(&lc, sizeof(lc));
       lc.mask = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT;
       lc.fmt = LVCFMT_LEFT;
+      lc.pszText = (TCHAR *) dlgText;
       wh = GetDlgItem(wnd, IDC_LIST);
-      for (i = 0; dlgCols[i]; i++) {
-        s += lstrlen(s) + 1;
-        lc.cx = dlgCols[i];
-        lc.pszText = s;
+      for (i = 0; i < COLS_INTOTAL; i++) {
+        lc.cx = defcfg[CFG_C + i][1];
         ListView_InsertColumn(wh, i, &lc);
+        lc.pszText += lstrlen(lc.pszText) + 1;
       }
       // fix list report styles
-      SendMessage(wh, LVM_SETEXTENDEDLISTVIEWSTYLE, 0, LVS_EX_FULLROWSELECT/* | LVS_EX_GRIDLINES*/);
+      SendMessage(wh, LVM_SETEXTENDEDLISTVIEWSTYLE, 0, LVS_EX_FULLROWSELECT);
       // default sort order by energy ascending
-      SetWindowLong(wh, GWL_USERDATA, MAKEWORD(3, 0));
+      SetWindowLong(wh, GWL_USERDATA, MAKEWORD(COLS_ENERGYL, 0));
       // fix spectral line listbox
       wh = GetDlgItem(wnd, IDC_LINE);
       // to vertical, not horizontal scrolls - must be at least one column added
@@ -446,15 +660,27 @@ HWND wh;
       GetClientRect(wh, &rc);
       lc.cx = rc.right - GetSystemMetrics(SM_CXVSCROLL);
       ListView_InsertColumn(wh, 0, &lc);
-      // checkboxes
+      // add checkboxes
       SendMessage(wh, LVM_SETEXTENDEDLISTVIEWSTYLE, 0, LVS_EX_CHECKBOXES | LVS_EX_FULLROWSELECT);
+      // v1.06 - moved initialization here to prevent KeepSettings() from saving uninitialized values
+      BaseLoad((TCHAR *) BaseFile, &bf);
+      // failed?
+      if (!bf.data) {
+        // report error
+        MsgBox(wnd, MAKEINTRESOURCE(IDS_ERR_BASE), MB_ICONERROR | MB_OK);
+        // close window
+        PostMessage(wnd, WM_COMMAND, MAKELONG(IDCANCEL, BN_CLICKED), 0);
+        break;
+      }
       // fill in combobox
       AddElements(wnd, &bf);
       // anchors for resize
-      for (i = 0; dlgAnchors[i]; i++) {
+      for (i = 0; i < LIST_LEN(dlgAnchors); i++) {
         WndAnchorsFlag(GetDlgItem(wnd, LOBYTE(dlgAnchors[i])), HIBYTE(dlgAnchors[i]));
       }
       SetWindowLong(wnd, GWL_USERDATA, (LONG) WndAnchorsInit(wnd));
+      // v1.06 load settings
+      InitSettings(wnd);
       // must be true because there are modified controls and styles
       result = TRUE;
       break;
@@ -463,6 +689,8 @@ HWND wh;
         switch (LOWORD(wparm)) {
           // exit from program
           case IDCANCEL:
+            // v1.06 save settings
+            KeepSettings(wnd);
             // cleanup
             WndAnchorsFree((wacsitem *) GetWindowLong(wnd, GWL_USERDATA));
             SetWindowLong(wnd, GWL_USERDATA, 0);
@@ -479,9 +707,6 @@ HWND wh;
               GetAndFixEditFloat(GetDlgItem(wnd, IDC_ITEM)),
               GetAndFixEditFloat(GetDlgItem(wnd, IDC_DIFF))
             );
-            // sort by last sort order
-            wh = GetDlgItem(wnd, IDC_LIST);
-            ListView_SortItems(wh, ItemSortFunc, GetWindowLong(wh, GWL_USERDATA));
             break;
           case IDC_XCHG:
             InvertLines(GetDlgItem(wnd, IDC_LINE));
@@ -502,17 +727,21 @@ HWND wh;
           case IDC_SITE:
             // get last line
             *((WORD *)z) = 99;
-            i = SendDlgItemMessage(wnd, IDC_INFO, EM_GETLINE, 4, (LPARAM) z);
+            i = SendDlgItemMessage(wnd, IDC_INFO, EM_GETLINE,
+              // v1.06 fix for long formula word wrapping lines
+              SendDlgItemMessage(wnd, IDC_INFO, EM_GETLINECOUNT, 0, 0) - 1,
+              (LPARAM) z
+            );
             z[i] = 0;
             // skip to URL
             for (s = z; *s && (*s != TEXT(':')); s++);
+            for (s++; *s == TEXT(' '); s++);
             if (*s) {
-              for (s++; *s == TEXT(' '); s++);
+              // open url
+              CoInitialize(NULL);
+              ShellExecute(wnd, NULL, s, NULL, NULL, SW_SHOWNORMAL);
+              CoUninitialize();
             }
-            // open url
-            CoInitialize(NULL);
-            ShellExecute(wnd, NULL, s, NULL, NULL, SW_SHOWNORMAL);
-            CoUninitialize();
             break;
         }
       }
@@ -522,14 +751,15 @@ HWND wh;
       }
       break;
     case WM_NOTIFY:
-      // update element info
-      if ((wparm == IDC_LIST) && (((NMHDR *) lparm)->code == LVN_ITEMCHANGED)) {
-        ShowInfo(wnd);
-      }
-      // sort by clicked column header
-      if ((wparm == IDC_LIST) && (((NMHDR *) lparm)->code == LVN_COLUMNCLICK)) {
+      // only for listview
+      if (wparm == IDC_LIST) {
         nmlv = (NM_LISTVIEW *) lparm;
-        if (nmlv->iItem == -1) {
+        // update element info
+        if ((nmlv->hdr.code == NM_CLICK) || (nmlv->hdr.code == LVN_ITEMCHANGED)) {
+          ShowInfo(wnd, &bf);
+        }
+        // sort by clicked column header
+        if ((nmlv->hdr.code == LVN_COLUMNCLICK) && (nmlv->iItem == -1)) {
           // load sort order
           i = GetWindowLong(nmlv->hdr.hwndFrom, GWL_USERDATA);
           // ascending or descending if this column already sorted
@@ -540,10 +770,16 @@ HWND wh;
           }
           // make sort order
           i = MAKEWORD(nmlv->iSubItem, i);
-          // save sort order
-          ListView_SortItems(nmlv->hdr.hwndFrom, ItemSortFunc, i);
           // sort list
+          ListView_SortItems(nmlv->hdr.hwndFrom, ItemSortFunc, i);
+          // save sort order
           SetWindowLong(nmlv->hdr.hwndFrom, GWL_USERDATA, i);
+          // v1.06 scroll to selected item
+          ListView_EnsureVisible(
+            nmlv->hdr.hwndFrom,
+            ListView_GetNextItem(nmlv->hdr.hwndFrom, -1, LVNI_FOCUSED),
+            FALSE
+          );
         }
       }
       break;

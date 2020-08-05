@@ -1,4 +1,3 @@
-#include "SysToolX.h"
 #include "BaseUnit.h"
 
 void BaseFree(bin_file *bf) {
@@ -11,7 +10,7 @@ void BaseFree(bin_file *bf) {
   }
 }
 
-void BaseOpen(TCHAR *filename, bin_file *bf) {
+void BaseLoad(TCHAR *filename, bin_file *bf) {
 DWORD sz;
   if (filename && bf) {
     ZeroMemory(bf, sizeof(bf[0]));
@@ -24,9 +23,9 @@ DWORD sz;
           bf->head = (bin_head *) MapViewOfFile(bf->fm, FILE_MAP_READ, 0, 0, 0);
           if (bf->head) {
             if (
-              (bf->head->sign1 == 0x4D454843) && // CHEM
-              (bf->head->sign2 == 0x45534142) && // BASE
-              (sz == bf->head->size)             // filesize
+              (bf->head->sign1 == 0x6D656843) && // Chem
+              (bf->head->sign2 == 0x65736142) && // Base
+              (sz == bf->head->fsize)            // filesize
             ) {
               bf->data = (BYTE *) bf->head;
               bf->data += sizeof(bf->head[0]);
@@ -42,27 +41,33 @@ DWORD sz;
   }
 }
 
-void BaseList(bin_file *bf, BASEPROC *proc, void *parm) {
-bin_item *bi;
-DWORD i;
-BYTE *p;
+void *BaseData(bin_file *bf, DWORD ntab) {
+void *result;
+DWORD *offs;
+  result = NULL;
   // sanity check
-  if (bf && bf->data && proc) {
-    p = bf->data;
-    for (i = 0; i < bf->head->count; i++) {
-      bi = (bin_item *) p;
-      // call user proc
-      if (!proc(bi, parm)) {
-        break;
-      }
-      // next row
-      p += sizeof(bi[0]);
-      p += bi->sz_spec;
-      p += bi->sz_form;
+  if (bf && bf->data && (ntab < bf->head->count)) {
+    offs = (DWORD *) bf->data;
+    // table in range
+    if (ntab < (*offs / 4)) {
+      result = &bf->data[offs[ntab]];
     }
   }
+  return(result);
 }
 
-/*BOOL WINAPI BaseProc(bin_item *bi, void *parm) {
-  return(FALSE);
-}*/
+void *BaseItem(bin_file *bf, DWORD ntab, WORD nidx) {
+WORD *w;
+BYTE *p;
+  p = (BYTE *) BaseData(bf, ntab);
+  if (p) {
+    // item in range
+    w = (WORD *) p;
+    if (nidx < *w) {
+      p += ntab ? (w[nidx] * 2) : (2 + (nidx * sizeof(bin_item)));
+    } else {
+      p = NULL;
+    }
+  }
+  return(p);
+}

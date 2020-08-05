@@ -8,8 +8,8 @@ IDI_ICON ICON "ChemBase.ico"
 1 24 "Manifest.xml"
 
 1 VERSIONINFO
-FILEVERSION 1,5,0,0
-PRODUCTVERSION 1,5,0,0
+FILEVERSION 1,6,0,0
+PRODUCTVERSION 1,6,0,0
 FILETYPE 1
 BEGIN
   BLOCK "StringFileInfo"
@@ -18,12 +18,12 @@ BEGIN
     BEGIN
       VALUE "CompanyName", "SysTools"
       VALUE "FileDescription", "ChemBase"
-      VALUE "FileVersion", "1.5.0.0"
-      VALUE "LegalCopyright", "\xA9 SysTools 2017"
+      VALUE "FileVersion", "1.6.0.0"
+      VALUE "LegalCopyright", "\xA9 SysTools 2017-2020"
       VALUE "OriginalFilename", "chembase.exe"
       VALUE "InternalName", "chembase"
       VALUE "ProductName", "ChemBase"
-      VALUE "ProductVersion", "1.5"
+      VALUE "ProductVersion", "1.6"
     END
   END
   BLOCK "VarFileInfo"
@@ -34,7 +34,7 @@ END
 
 IDD_CHEMBASE DIALOG 0, 0, 420, 174
 STYLE DS_3DLOOK | DS_CENTER | DS_SHELLFONT | WS_CAPTION | WS_VISIBLE | WS_GROUP | WS_TABSTOP | WS_THICKFRAME | WS_SYSMENU
-CAPTION "ChemBase v1.05"
+CAPTION "ChemBase v1.06"
 FONT 8, "Ms Sans Serif"
 BEGIN
   LTEXT          "Energy (eV)", -1, 7, 7, 38, 9
@@ -46,13 +46,13 @@ BEGIN
   EDITTEXT       IDC_DIFF, 57, 17, 45, 13, ES_AUTOHSCROLL
   COMBOBOX       IDC_ELEM, 107, 17, 45, 30, WS_TABSTOP | CBS_DROPDOWNLIST | CBS_HASSTRINGS | WS_VSCROLL | CBS_SORT | CBS_NOINTEGRALHEIGHT
   DEFPUSHBUTTON  "Find", IDC_FIND, 157, 17, 50, 13
-  CONTROL        "", IDC_LIST, WC_LISTVIEW, WS_TABSTOP | WS_BORDER | LVS_ALIGNLEFT | LVS_SINGLESEL | LVS_REPORT, 7, 42, 320, 75
+  CONTROL        "", IDC_LIST, WC_LISTVIEW, WS_TABSTOP | WS_BORDER | LVS_ALIGNLEFT | LVS_SINGLESEL | LVS_REPORT | LVS_SHOWSELALWAYS, 7, 42, 320, 75
   EDITTEXT       IDC_INFO, 7, 122, 320, 45, WS_VSCROLL | ES_MULTILINE | ES_READONLY
   PUSHBUTTON     "Copy info", IDC_COPY, 332, 127, 50, 13, WS_DISABLED
   PUSHBUTTON     "See details", IDC_SITE, 332, 147, 50, 13, WS_DISABLED
   PUSHBUTTON     "Invert", IDC_XCHG, 332, 17, 25, 13, WS_DISABLED
   PUSHBUTTON     "Show this", IDC_SHOW, 362, 17, 50, 13, WS_DISABLED
-  CONTROL        "", IDC_LINE, WC_LISTVIEW, WS_TABSTOP | WS_BORDER | LVS_SINGLESEL | LVS_REPORT | LVS_NOCOLUMNHEADER | LVS_SORTASCENDING, 332, 42, 80, 75
+  CONTROL        "", IDC_LINE, WC_LISTVIEW, WS_TABSTOP | WS_BORDER | LVS_SINGLESEL | LVS_REPORT | LVS_NOCOLUMNHEADER | LVS_SORTASCENDING | LVS_SHOWSELALWAYS, 332, 42, 80, 75
 END
 
 STRINGTABLE
@@ -62,10 +62,10 @@ BEGIN
     "Spectral Line: %s\r\n"\
     "Formula: %s\r\n"\
     "Energy (eV): %s\r\n"\
-    "Details: http://srdata.nist.gov/xps/XPSDetailPage.aspx?AllDataNo=%s"
+    "Details: https://srdata.nist.gov/xps/XPSDetailPage.aspx?AllDataNo=%s"
   IDS_HELP\
-    "ChemBase v1.05\r\n"\
-    "\xA9 SysTools 2017\r\n"\
+    "ChemBase v1.06\r\n"\
+    "\xA9 SysTools 2017-2020\r\n"\
     "http://systools.losthost.org/?misc#chembase\r\n"\
     "\r\n"\
     "This program provides an easy and quick way to use the database for the energy positions of the core peaks of elements in different chemical compounds. It contains a huge number of references to the works carried out by X-ray photoelectron spectroscopy.\r\n"\

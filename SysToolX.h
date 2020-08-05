@@ -3,6 +3,8 @@
 
 #include <windows.h>
 
+#define PCSD __attribute__ ((aligned(1))) const static
+#define LIST_LEN(x) (sizeof(x) / sizeof((x)[0]))
 #define STR_ALLOC(x) ((TCHAR *) GetMem((x + 1) * sizeof(TCHAR)))
 
 void FreeMem(void *block);

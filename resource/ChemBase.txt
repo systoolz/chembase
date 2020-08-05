@@ -1,0 +1,9 @@
+v1.06 [2020.08.03]
+- program settings including windows position and size will be saved and restored from ini file
+- optimized database format and data, size halved, search speed increased
+- selected list view item always visible when changing column sorting order
+- permanent selection in list views
+- code cleanup, various bugfixes
+
+v1.05 [2017.01.21]
+- first publice release

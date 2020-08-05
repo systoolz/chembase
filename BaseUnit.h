@@ -7,18 +7,16 @@
 typedef struct {
   DWORD sign1;
   DWORD sign2;
+  DWORD fsize;
   DWORD count;
-  DWORD  size;
 } bin_head;
 
 typedef struct {
+  BYTE element;
+  BYTE spcline;
+  WORD formula;
   DWORD energy;
   DWORD detail;
-  WORD element;
-  BYTE sz_spec;
-  BYTE sz_form;
-//  CCHAR line[sz_spec];
-//  CCHAR form[sz_form];
 } bin_item;
 
 typedef struct {
@@ -29,10 +27,9 @@ typedef struct {
 } bin_file;
 #pragma pack(pop)
 
-typedef BOOL (WINAPI BASEPROC)(bin_item *bi, void *parm);
-
 void BaseFree(bin_file *bf);
-void BaseOpen(TCHAR *filename, bin_file *bf);
-void BaseList(bin_file *bf, BASEPROC *proc, void *parm);
+void BaseLoad(TCHAR *filename, bin_file *bf);
+void *BaseData(bin_file *bf, DWORD ntab);
+void *BaseItem(bin_file *bf, DWORD ntab, WORD nidx);
 
 #endif
