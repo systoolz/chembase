@@ -13,3 +13,5 @@ https://www.softpedia.com/get/Science-CAD/ChemBase.shtml
 Software homepage (you can download binary "ChemBase.exe" and database file here):
 
 http://systools.losthost.org/?misc#chembase
+
+Licensed under the Apache License, Version 2.0 (the "License") - see LICENSE file.
