@@ -8,8 +8,8 @@ IDI_ICON ICON "ChemBase.ico"
 1 24 "Manifest.xml"
 
 1 VERSIONINFO
-FILEVERSION 1,6,0,0
-PRODUCTVERSION 1,6,0,0
+FILEVERSION 1,7,0,0
+PRODUCTVERSION 1,7,0,0
 FILETYPE 1
 BEGIN
   BLOCK "StringFileInfo"
@@ -18,12 +18,12 @@ BEGIN
     BEGIN
       VALUE "CompanyName", "SysTools"
       VALUE "FileDescription", "ChemBase"
-      VALUE "FileVersion", "1.6.0.0"
-      VALUE "LegalCopyright", "\xA9 SysTools 2017-2020"
+      VALUE "FileVersion", "1.7.0.0"
+      VALUE "LegalCopyright", "\xA9 SysTools 2017-2023"
       VALUE "OriginalFilename", "chembase.exe"
       VALUE "InternalName", "chembase"
       VALUE "ProductName", "ChemBase"
-      VALUE "ProductVersion", "1.6"
+      VALUE "ProductVersion", "1.7"
     END
   END
   BLOCK "VarFileInfo"
@@ -34,7 +34,7 @@ END
 
 IDD_CHEMBASE DIALOG 0, 0, 420, 174
 STYLE DS_3DLOOK | DS_CENTER | DS_SHELLFONT | WS_CAPTION | WS_VISIBLE | WS_GROUP | WS_TABSTOP | WS_THICKFRAME | WS_SYSMENU
-CAPTION "ChemBase v1.06"
+CAPTION "ChemBase v1.07"
 FONT 8, "Ms Sans Serif"
 BEGIN
   LTEXT          "Energy (eV)", -1, 7, 7, 38, 9
@@ -62,17 +62,17 @@ BEGIN
     "Spectral Line: %s\r\n"\
     "Formula: %s\r\n"\
     "Energy (eV): %s\r\n"\
-    "Details: https://srdata.nist.gov/xps/XPSDetailPage.aspx?AllDataNo=%s"
+    "Details: https://srdata.nist.gov/xps/XPSSummaryPage/%s"
   IDS_HELP\
-    "ChemBase v1.06\r\n"\
-    "\xA9 SysTools 2017-2020\r\n"\
+    "ChemBase v1.07\r\n"\
+    "\xA9 SysTools 2017-2023\r\n"\
     "http://systools.losthost.org/?misc#chembase\r\n"\
     "\r\n"\
     "This program provides an easy and quick way to use the database for the energy positions of the core peaks of elements in different chemical compounds. It contains a huge number of references to the works carried out by X-ray photoelectron spectroscopy.\r\n"\
     "It allows you to quickly carry out a comparative analysis of the experimental data available in the literature, and select the appropriate references.\r\n"\
     "This program utilises open NIST X-ray Photoelectron Spectroscopy Database.\r\n"\
     "It's a limited only to Binding Energy version of the web search:\r\n"\
-    "https://srdata.nist.gov/xps/EnergyTypeValSrch.aspx\r\n"\
+    "https://srdata.nist.gov/xps/SpectraIdentifier\r\n"\
     "This program saves a lot of time, and it's a necessary tool for a professional.\r\n"\
     "\r\n"\
     "Note that precision of the all values are two digits after the point.\r\n"\

@@ -1,3 +1,8 @@
+v1.07 [2023.12.21]
+- removed 1123 duplicate records from the database (almost 14 Kb saved)
+- updated all links to NIST X-ray Photoelectron Spectroscopy Database (site changed)
+- add missing record for R-44
+
 v1.06 [2020.08.03]
 - program settings including windows position and size will be saved and restored from ini file
 - optimized database format and data, size halved, search speed increased
